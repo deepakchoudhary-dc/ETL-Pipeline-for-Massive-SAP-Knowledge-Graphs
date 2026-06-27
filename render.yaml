@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: sap-o2c-graph-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn graph_server.main:app --host 0.0.0.0 --port 8000
+
+  - type: web
+    name: sap-o2c-frontend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run frontend/app.py --server.port 8501
+    envVars:
+      - key: API_URL
+        value: http://sap-o2c-graph-api:8000

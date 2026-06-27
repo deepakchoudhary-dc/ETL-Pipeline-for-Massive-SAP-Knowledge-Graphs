@@ -1,0 +1,40 @@
+@prefix o2c: <http://enterprise.com/ontology/o2c#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+o2c: a owl:Ontology ;
+    rdfs:label "SAP Order-to-Cash Ontology" .
+
+o2c:SalesOrder a owl:Class .
+o2c:SalesItem a owl:Class .
+o2c:Delivery a owl:Class .
+o2c:DeliveryItem a owl:Class .
+o2c:Invoice a owl:Class .
+o2c:InvoiceItem a owl:Class .
+o2c:PartialDeliveryAnomaly a owl:Class .
+
+o2c:hasSalesItem a owl:ObjectProperty ;
+    rdfs:domain o2c:SalesOrder ;
+    rdfs:range o2c:SalesItem .
+
+o2c:fulfilledByDeliveryItem a owl:ObjectProperty ;
+    rdfs:domain o2c:SalesItem ;
+    rdfs:range o2c:DeliveryItem .
+
+o2c:billedByInvoiceItem a owl:ObjectProperty ;
+    rdfs:domain o2c:SalesItem ;
+    rdfs:range o2c:InvoiceItem .
+
+o2c:orderedQuantity a owl:DatatypeProperty ;
+    rdfs:domain o2c:SalesItem ;
+    rdfs:range xsd:decimal .
+
+o2c:deliveredQuantity a owl:DatatypeProperty ;
+    rdfs:domain o2c:DeliveryItem ;
+    rdfs:range xsd:decimal .
+
+o2c:billedQuantity a owl:DatatypeProperty ;
+    rdfs:domain o2c:InvoiceItem ;
+    rdfs:range xsd:decimal .

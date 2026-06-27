@@ -1,0 +1,53 @@
+prefixes:
+  o2c: "http://enterprise.com/ontology/o2c#"
+  rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+  xsd: "http://www.w3.org/2001/XMLSchema#"
+
+mappings:
+  sales_order:
+    sources:
+      - ['data/raw/VBAK.csv~csv']
+    s: "http://enterprise.com/resource/sales-order/$(VBELN)"
+    po:
+      - [a, o2c:SalesOrder]
+      - p: o2c:hasSalesItem
+        o:
+          mapping: sales_item
+          condition:
+            function: equal
+            parameters:
+              - [str1, "$(VBELN)"]
+              - [str2, "$(VBELN)"]
+
+  sales_item:
+    sources:
+      - ['data/raw/VBAP.csv~csv']
+    s: "http://enterprise.com/resource/sales-item/$(VBELN)-$(POSNR)"
+    po:
+      - [a, o2c:SalesItem]
+      - [o2c:orderedQuantity, "$(KWMENG)", xsd:decimal]
+      - p: o2c:fulfilledByDeliveryItem
+        o:
+          mapping: delivery_item
+          condition:
+            function: equal
+            parameters:
+              - [str1, "$(VBELN)"]
+              - [str2, "$(VGBEL)"]
+              - [str1, "$(POSNR)"]
+              - [str2, "$(VGPOS)"]
+
+  delivery:
+    sources:
+      - ['data/raw/LIKP.csv~csv']
+    s: "http://enterprise.com/resource/delivery/$(VBELN)"
+    po:
+      - [a, o2c:Delivery]
+
+  delivery_item:
+    sources:
+      - ['data/raw/LIPS.csv~csv']
+    s: "http://enterprise.com/resource/delivery-item/$(VBELN)-$(POSNR)"
+    po:
+      - [a, o2c:DeliveryItem]
+      - [o2c:deliveredQuantity, "$(LFIMG)", xsd:decimal]
