@@ -134,7 +134,14 @@ def generate_sparql(user_input: str, settings: LlmSettings | None = None) -> str
         user_prompt=user_input,
         settings=active_settings,
     )
-    return parse_sparql(response)
+    try:
+        return parse_sparql(response)
+    except ValueError:
+        repaired_response = _repair_sparql_response(user_input, response, active_settings)
+        try:
+            return parse_sparql(repaired_response)
+        except ValueError:
+            return fallback_sparql(user_input)
 
 
 def execute_sparql(sparql: str) -> list[dict[str, Any]]:
@@ -187,6 +194,71 @@ def parse_sparql(llm_output: str) -> str:
     raise ValueError("The LLM did not return a recognizable SPARQL SELECT, ASK, CONSTRUCT, or DESCRIBE query.")
 
 
+def fallback_sparql(user_input: str) -> str:
+    question = user_input.lower()
+    if "anomal" in question or "partial" in question or "delivery" in question:
+        return """
+PREFIX o2c: <http://enterprise.com/ontology/o2c#>
+SELECT ?sales_item ?ordered_quantity
+WHERE {
+  ?sales_item a o2c:PartialDeliveryAnomaly ;
+      o2c:orderedQuantity ?ordered_quantity .
+}
+LIMIT 100
+""".strip()
+
+    if "description" in question or "text" in question or "name" in question:
+        return """
+PREFIX data: <http://enterprise.com/ontology/data#>
+SELECT ?record ?source_table ?name ?description ?language
+WHERE {
+  ?record data:sourceTable ?source_table .
+  OPTIONAL { ?record data:name ?name . }
+  OPTIONAL { ?record data:description ?description . }
+  OPTIONAL { ?record data:language ?language . }
+  FILTER(BOUND(?name) || BOUND(?description))
+}
+LIMIT 100
+""".strip()
+
+    if "product" in question or "gtin" in question or "material" in question:
+        return """
+PREFIX data: <http://enterprise.com/ontology/data#>
+SELECT ?record ?source_table ?product_key ?product_id ?gtin ?category
+WHERE {
+  ?record data:sourceTable ?source_table .
+  OPTIONAL { ?record data:productKey ?product_key . }
+  OPTIONAL { ?record data:productId ?product_id . }
+  OPTIONAL { ?record data:gtin ?gtin . }
+  OPTIONAL { ?record data:merchandiseCategory ?category . }
+  FILTER(CONTAINS(LCASE(STR(?source_table)), "product") || BOUND(?product_key) || BOUND(?product_id) || BOUND(?gtin))
+}
+LIMIT 100
+""".strip()
+
+    if "site" in question or "store" in question or "location" in question:
+        return """
+PREFIX data: <http://enterprise.com/ontology/data#>
+SELECT ?record ?source_table ?site_id ?site_name ?currency
+WHERE {
+  ?record data:sourceTable ?source_table .
+  OPTIONAL { ?record data:siteId ?site_id . }
+  OPTIONAL { ?record data:siteName ?site_name . }
+  OPTIONAL { ?record data:currency ?currency . }
+  FILTER(CONTAINS(LCASE(STR(?source_table)), "site") || BOUND(?site_id) || BOUND(?site_name))
+}
+LIMIT 100
+""".strip()
+
+    return """
+SELECT ?subject ?predicate ?object
+WHERE {
+  ?subject ?predicate ?object .
+}
+LIMIT 100
+""".strip()
+
+
 def _extract_query_text(text: str) -> str:
     cleaned = text.strip()
     if not cleaned:
@@ -205,6 +277,30 @@ def _extract_query_text(text: str) -> str:
     if not sparql:
         return ""
     return sparql
+
+
+def _repair_sparql_response(user_input: str, llm_output: str, settings: LlmSettings) -> str:
+    repair_prompt = f"""
+The previous model response did not contain executable SPARQL.
+Rewrite it as one SPARQL SELECT query only. Use no markdown and no explanation.
+
+Question:
+{user_input}
+
+Allowed schema:
+{SCHEMA_CONTEXT}
+
+Previous response:
+{llm_output[:3000]}
+"""
+    try:
+        return _call_llm(
+            system_prompt="Return only one executable SPARQL query. Do not explain.",
+            user_prompt=repair_prompt,
+            settings=settings,
+        )
+    except (RagConfigurationError, requests.RequestException):
+        return ""
 
 
 def _call_llm(system_prompt: str, user_prompt: str, settings: LlmSettings) -> str:
