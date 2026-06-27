@@ -55,7 +55,7 @@ def llm_settings_from_sidebar() -> rag_agent.LlmSettings:
     )
 
     if provider == "ollama":
-        model = st.text_input("Model", value=os.getenv("OLLAMA_MODEL", os.getenv("LLM_MODEL", "llama3.1")))
+        model = st.text_input("Model", value=os.getenv("OLLAMA_MODEL", os.getenv("LLM_MODEL", "gemma4:e4b")))
         base_url = st.text_input("Ollama URL", value=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"))
         return rag_agent.LlmSettings(provider=provider, model=model, base_url=base_url)
 

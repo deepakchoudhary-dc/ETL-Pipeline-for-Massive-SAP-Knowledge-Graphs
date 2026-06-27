@@ -15,6 +15,24 @@ def test_parse_sparql_extracts_query_block() -> None:
     assert "SELECT ?s" in parse_sparql(output)
 
 
-def test_parse_sparql_rejects_missing_query_block() -> None:
+def test_parse_sparql_extracts_fenced_query() -> None:
+    output = """
+    Here is the SPARQL:
+    ```sparql
+    PREFIX data: <http://enterprise.com/ontology/data#>
+    SELECT ?s WHERE { ?s data:productKey ?key . }
+    ```
+    """
+
+    assert "data:productKey" in parse_sparql(output)
+
+
+def test_parse_sparql_extracts_plain_query() -> None:
+    output = "PREFIX data: <http://enterprise.com/ontology/data#>\nSELECT ?s WHERE { ?s ?p ?o . }"
+
+    assert parse_sparql(output).startswith("PREFIX data:")
+
+
+def test_parse_sparql_rejects_missing_query() -> None:
     with pytest.raises(ValueError):
-        parse_sparql("SELECT ?s WHERE { ?s ?p ?o . }")
+        parse_sparql("I would look for product rows and descriptions.")

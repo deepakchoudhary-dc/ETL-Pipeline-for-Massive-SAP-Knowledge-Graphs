@@ -59,7 +59,7 @@ For Ollama:
 
 - Provider: `ollama`
 - URL: `http://localhost:11434`
-- Model: any installed Ollama model, for example `llama3.1`
+- Model: any installed Ollama model, for example `gemma4:e4b`
 
 For OpenAI:
 

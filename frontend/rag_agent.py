@@ -111,7 +111,7 @@ def settings_from_env() -> LlmSettings:
         )
     return LlmSettings(
         provider="ollama",
-        model=os.getenv("OLLAMA_MODEL", os.getenv("LLM_MODEL", "llama3.1")),
+        model=os.getenv("OLLAMA_MODEL", os.getenv("LLM_MODEL", "gemma4:e4b")),
         base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
     )
 
@@ -161,12 +161,49 @@ def summarize_result(
 
 
 def parse_sparql(llm_output: str) -> str:
-    match = re.search(r"<sparql_query>\s*(.*?)\s*</sparql_query>", llm_output, re.DOTALL | re.IGNORECASE)
-    if not match:
-        raise ValueError("LLM response did not include a <sparql_query> block.")
-    sparql = match.group(1).strip()
+    candidates = [
+        match.group(1)
+        for match in re.finditer(
+            r"<sparql_query>\s*(.*?)\s*</sparql_query>",
+            llm_output,
+            re.DOTALL | re.IGNORECASE,
+        )
+    ]
+    candidates.extend(
+        match.group(1)
+        for match in re.finditer(
+            r"```(?:sparql|ttl|rdf|query)?\s*(.*?)```",
+            llm_output,
+            re.DOTALL | re.IGNORECASE,
+        )
+    )
+    candidates.append(llm_output)
+
+    for candidate in candidates:
+        sparql = _extract_query_text(candidate)
+        if sparql:
+            return sparql
+
+    raise ValueError("The LLM did not return a recognizable SPARQL SELECT, ASK, CONSTRUCT, or DESCRIBE query.")
+
+
+def _extract_query_text(text: str) -> str:
+    cleaned = text.strip()
+    if not cleaned:
+        return ""
+
+    query_match = re.search(
+        r"((?:PREFIX\s+\w+:\s*<[^>]+>\s*)*(?:SELECT|ASK|CONSTRUCT|DESCRIBE)\b.*)",
+        cleaned,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not query_match:
+        return ""
+
+    sparql = query_match.group(1).strip()
+    sparql = re.sub(r"</?sparql_query>", "", sparql, flags=re.IGNORECASE).strip()
     if not sparql:
-        raise ValueError("LLM returned an empty SPARQL query.")
+        return ""
     return sparql
 
 
